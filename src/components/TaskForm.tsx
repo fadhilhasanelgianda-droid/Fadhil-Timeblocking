@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
 import { TimeBlock, ProjectType, PriorityType, StatusType } from '../types';
 import { PROJECTS, PRIORITIES, STATUSES } from '../constants';
@@ -25,7 +27,7 @@ export default function TaskForm({ initialData, selectedDate, onSave, onDelete, 
   });
   
   const [loading, setLoading] = useState(false);
-  const [errorError, setError] = useState('');
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (initialData) {
@@ -81,9 +83,9 @@ export default function TaskForm({ initialData, selectedDate, onSave, onDelete, 
         </div>
 
         <div className="p-4 overflow-y-auto w-full space-y-4">
-          {errorError && (
+          {error && (
             <div className="p-3 bg-red-100 text-red-700 rounded-lg text-sm mb-2 font-medium">
-              {errorError}
+              {error}
             </div>
           )}
 

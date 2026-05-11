@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState } from 'react';
 import { TimeBlock } from '../types';
 import { PROJECT_COLORS, STATUS_COLORS, STATUSES } from '../constants';

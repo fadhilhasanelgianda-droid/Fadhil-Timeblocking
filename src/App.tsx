@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
 import { TimeBlock } from './types';
 import * as api from './api';
