@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
 import { TimeBlock } from './types';
 import * as api from './api';
@@ -7,6 +9,7 @@ import DailyView from './components/DailyView';
 import WeeklyView from './components/WeeklyView';
 import TaskForm from './components/TaskForm';
 import { Plus, LayoutList, CalendarDays, Settings as SettingsIcon } from 'lucide-react';
+import { StatusType } from './types';
 
 dayjs.extend(isSameOrAfter);
 
@@ -66,7 +69,7 @@ export default function App() {
     try {
       const block = blocks.find(b => b.id === id);
       if(!block) return;
-      const updated = await api.updateTimeBlock(id, { ...block, status: newStatus as any });
+      const updated = await api.updateTimeBlock(id, { ...block, status: newStatus as StatusType });
       setBlocks(blocks.map(b => b.id === id ? updated : b));
     } catch (err) {
       alert('Gagal mengubah status');
@@ -109,7 +112,15 @@ export default function App() {
              </div>
              <h2 className="text-2xl font-bold">Pengaturan</h2>
              <p className="text-gray-600 text-sm">
-                Tambahkan Google Sheets credentials di `.env` (isi variable MOCK_DB=false) pada backend Anda untuk sinkronisasi riil Google Sheets.
+                Untuk sinkronisasi ke Google Sheets, isi tiga variabel berikut di file <code className="bg-gray-100 px-1 rounded">.env</code>:
+             </p>
+             <ul className="text-left text-xs text-gray-500 bg-gray-50 rounded-xl p-4 space-y-1 font-mono">
+               <li>GOOGLE_SERVICE_ACCOUNT_EMAIL</li>
+               <li>GOOGLE_PRIVATE_KEY</li>
+               <li>GOOGLE_SPREADSHEET_ID</li>
+             </ul>
+             <p className="text-gray-500 text-xs">
+               Lihat <code className="bg-gray-100 px-1 rounded">.env.example</code> untuk panduan lengkap.
              </p>
           </div>
         )}
