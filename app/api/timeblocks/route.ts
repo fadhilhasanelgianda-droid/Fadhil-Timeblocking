@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTimeBlocks, createTimeBlock } from '@/lib/sheetsService';
+import { validateCreatePayload } from '@/lib/validation';
 
 export async function GET() {
   try {
@@ -14,6 +15,12 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const data = await req.json();
+
+    const errors = validateCreatePayload(data);
+    if (errors.length > 0) {
+      return NextResponse.json({ errors }, { status: 400 });
+    }
+
     const block = await createTimeBlock(data);
     return NextResponse.json(block, { status: 201 });
   } catch (error) {

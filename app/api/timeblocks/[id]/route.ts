@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateTimeBlock, deleteTimeBlock } from '@/lib/sheetsService';
+import { validateUpdatePayload } from '@/lib/validation';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -7,6 +8,12 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
   try {
     const { id } = await params;
     const data = await req.json();
+
+    const errors = validateUpdatePayload(data);
+    if (errors.length > 0) {
+      return NextResponse.json({ errors }, { status: 400 });
+    }
+
     const block = await updateTimeBlock(id, data);
     if (!block) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     return NextResponse.json(block);

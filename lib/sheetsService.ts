@@ -2,18 +2,21 @@ import { google } from 'googleapis';
 import { TimeBlock } from '@/src/types';
 import dayjs from 'dayjs';
 import { v4 as uuidv4 } from 'uuid';
-
-const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
+import fs from 'fs';
+import path from 'path';
 
 function getAuthClient() {
-  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+  const clientId     = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
 
-  if (!email || !privateKey) {
-    throw new Error('Google Sheets Service Account credentials are missing in env vars.');
+  if (!clientId || !clientSecret || !refreshToken) {
+    throw new Error('Google OAuth2 credentials (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN) are missing.');
   }
 
-  return new google.auth.JWT({ email, key: privateKey, scopes: SCOPES });
+  const oauth2 = new google.auth.OAuth2(clientId, clientSecret, 'http://localhost');
+  oauth2.setCredentials({ refresh_token: refreshToken });
+  return oauth2;
 }
 
 const getSpreadsheetId = () => {
@@ -22,54 +25,74 @@ const getSpreadsheetId = () => {
   return id;
 };
 
-// Fallback in-memory database if Google Sheets API is not configured.
-let mockData: TimeBlock[] = [];
+// --- Mock / local fallback (active when Google Sheets creds are absent) ---
+
 let useMock = false;
 
 try {
   getAuthClient();
   getSpreadsheetId();
 } catch {
-  console.warn('⚠️ Google Sheets credentials not fully configured. Using IN-MEMORY MOCK database.');
+  console.warn('⚠️ Google Sheets credentials not fully configured. Using file-based mock database.');
   useMock = true;
-  mockData = [
-    {
-      id: 'tb_123456789_abcd',
-      date: dayjs().format('YYYY-MM-DD'),
-      day: dayjs().format('dddd'),
-      project: 'Boleh Belajar',
-      task_name: 'Meeting pegadaian',
-      priority: '🔴 High',
-      start_time: '09:00',
-      end_time: '10:00',
-      duration_hrs: 1,
-      status: 'Done',
-      notes: 'Follow up besok',
-      created_at: dayjs().toISOString(),
-      updated_at: dayjs().toISOString(),
-    },
-    {
-      id: 'tb_123456789_efgh',
-      date: dayjs().format('YYYY-MM-DD'),
-      day: dayjs().format('dddd'),
-      project: 'Personal',
-      task_name: 'Lunch Break',
-      priority: '🟢 Low',
-      start_time: '12:00',
-      end_time: '13:00',
-      duration_hrs: 1,
-      status: 'Done',
-      notes: '',
-      created_at: dayjs().toISOString(),
-      updated_at: dayjs().toISOString(),
-    },
-  ];
 }
+
+const MOCK_DB_PATH = path.join(process.cwd(), '.mock-db.json');
+
+const defaultMockData = (): TimeBlock[] => [
+  {
+    id: 'tb_123456789_abcd',
+    date: dayjs().format('YYYY-MM-DD'),
+    day: dayjs().format('dddd'),
+    project: 'Boleh Belajar',
+    task_name: 'Meeting pegadaian',
+    priority: '🔴 High',
+    start_time: '09:00',
+    end_time: '10:00',
+    duration_hrs: 1,
+    status: 'Done',
+    notes: 'Follow up besok',
+    created_at: dayjs().toISOString(),
+    updated_at: dayjs().toISOString(),
+  },
+  {
+    id: 'tb_123456789_efgh',
+    date: dayjs().format('YYYY-MM-DD'),
+    day: dayjs().format('dddd'),
+    project: 'Personal',
+    task_name: 'Lunch Break',
+    priority: '🟢 Low',
+    start_time: '12:00',
+    end_time: '13:00',
+    duration_hrs: 1,
+    status: 'Done',
+    notes: '',
+    created_at: dayjs().toISOString(),
+    updated_at: dayjs().toISOString(),
+  },
+];
+
+function readMockDb(): TimeBlock[] {
+  try {
+    return JSON.parse(fs.readFileSync(MOCK_DB_PATH, 'utf-8')) as TimeBlock[];
+  } catch {
+    // File doesn't exist yet — seed with defaults and persist immediately
+    const seed = defaultMockData();
+    writeMockDb(seed);
+    return seed;
+  }
+}
+
+function writeMockDb(data: TimeBlock[]): void {
+  fs.writeFileSync(MOCK_DB_PATH, JSON.stringify(data, null, 2), 'utf-8');
+}
+
+// --- Google Sheets helpers ---
 
 const SPREADSHEET_RANGE = 'Task Log!A2:M';
 
 export async function getTimeBlocks(): Promise<TimeBlock[]> {
-  if (useMock) return mockData;
+  if (useMock) return readMockDb();
 
   const auth = getAuthClient();
   const sheets = google.sheets({ version: 'v4', auth });
@@ -124,7 +147,9 @@ export async function createTimeBlock(data: Partial<TimeBlock>): Promise<TimeBlo
   } as TimeBlock;
 
   if (useMock) {
+    const mockData = readMockDb();
     mockData.push(newBlock);
+    writeMockDb(mockData);
     return newBlock;
   }
 
@@ -158,12 +183,14 @@ export async function createTimeBlock(data: Partial<TimeBlock>): Promise<TimeBlo
 }
 
 export async function updateTimeBlock(id: string, data: Partial<TimeBlock>): Promise<TimeBlock | null> {
-  data.updated_at = new Date().toISOString();
+  const updatedAt = new Date().toISOString();
 
   if (useMock) {
+    const mockData = readMockDb();
     const index = mockData.findIndex(b => b.id === id);
     if (index === -1) return null;
-    mockData[index] = { ...mockData[index], ...data };
+    mockData[index] = { ...mockData[index], ...data, updated_at: updatedAt };
+    writeMockDb(mockData);
     return mockData[index];
   }
 
@@ -196,7 +223,7 @@ export async function updateTimeBlock(id: string, data: Partial<TimeBlock>): Pro
     data.status ?? old[9] ?? '',
     data.notes ?? old[10] ?? '',
     old[11] ?? '',
-    data.updated_at,
+    updatedAt,
   ];
 
   await sheets.spreadsheets.values.update({
@@ -225,9 +252,11 @@ export async function updateTimeBlock(id: string, data: Partial<TimeBlock>): Pro
 
 export async function deleteTimeBlock(id: string): Promise<boolean> {
   if (useMock) {
-    const initialLen = mockData.length;
-    mockData = mockData.filter(b => b.id !== id);
-    return mockData.length < initialLen;
+    const mockData = readMockDb();
+    const filtered = mockData.filter(b => b.id !== id);
+    if (filtered.length === mockData.length) return false;
+    writeMockDb(filtered);
+    return true;
   }
 
   const auth = getAuthClient();
