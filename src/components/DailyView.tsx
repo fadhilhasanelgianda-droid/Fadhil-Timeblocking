@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { TimeBlock } from '../types';
+import { TimeBlock, Project } from '../types';
 import TaskCard from './TaskCard';
 import dayjs from 'dayjs';
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
@@ -10,13 +10,14 @@ interface DailyViewProps {
   date: string;
   onChangeDate: (date: string) => void;
   timeBlocks: TimeBlock[];
+  projects: Project[];
   onEdit: (block: TimeBlock) => void;
   onStatusChange: (id: string, newStatus: string) => void;
   onDelete: (id: string) => void | Promise<void>;
   isLoading: boolean;
 }
 
-export default function DailyView({ date, onChangeDate, timeBlocks, onEdit, onStatusChange, onDelete, isLoading }: DailyViewProps) {
+export default function DailyView({ date, onChangeDate, timeBlocks, projects, onEdit, onStatusChange, onDelete, isLoading }: DailyViewProps) {
   const blocksForDate = timeBlocks.filter(b => b.date === date).sort((a, b) => a.start_time.localeCompare(b.start_time));
   
   const totalHours = blocksForDate.reduce((acc, b) => acc + (b.duration_hrs || 0), 0);
@@ -76,6 +77,7 @@ export default function DailyView({ date, onChangeDate, timeBlocks, onEdit, onSt
                <TaskCard
                  key={block.id}
                  block={block}
+                 projects={projects}
                  onEdit={onEdit}
                  onStatusChange={onStatusChange}
                  onDelete={onDelete}

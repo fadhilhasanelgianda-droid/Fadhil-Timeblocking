@@ -1,14 +1,15 @@
-export type ProjectType =
-  | 'Boleh Belajar'
-  | 'Faith Industries'
-  | 'Auffan'
-  | 'Toko AC BDG'
-  | 'Suga Coat'
-  | 'Personal';
+export type ProjectType = string;
 
 export type PriorityType = '🔴 High' | '🟡 Medium' | '🟢 Low';
 
 export type StatusType = 'Todo' | 'In Progress' | 'Done' | 'Cancelled';
+
+export interface Project {
+  id: string;
+  name: string;
+  color: string; // palette key (e.g. 'blue', 'purple')
+  created_at?: string;
+}
 
 export interface TimeBlock {
   id: string; // tb_timestamp_random generated

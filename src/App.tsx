@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { TimeBlock } from './types';
+import { TimeBlock, Project } from './types';
 import * as api from './api';
 import dayjs from 'dayjs';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import DailyView from './components/DailyView';
 import WeeklyView from './components/WeeklyView';
 import TaskForm from './components/TaskForm';
+import ProjectsManager from './components/ProjectsManager';
 import { Plus, LayoutList, CalendarDays, Settings as SettingsIcon } from 'lucide-react';
 import { StatusType } from './types';
 
@@ -18,8 +19,9 @@ export default function App() {
   const [selectedDate, setSelectedDate] = useState(dayjs().format('YYYY-MM-DD'));
   
   const [blocks, setBlocks] = useState<TimeBlock[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [editingBlock, setEditingBlock] = useState<TimeBlock | undefined>(undefined);
 
@@ -30,14 +32,28 @@ export default function App() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const data = await api.fetchTimeBlocks();
-      setBlocks(data);
+      const [blocksData, projectsData] = await Promise.all([
+        api.fetchTimeBlocks(),
+        api.fetchProjects(),
+      ]);
+      setBlocks(blocksData);
+      setProjects(projectsData);
     } catch (err) {
       console.error(err);
       alert('Gagal memuat data dari Google Sheets');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleCreateProject = async (name: string, color: string) => {
+    const created = await api.createProject(name, color);
+    setProjects(prev => [...prev, created]);
+  };
+
+  const handleDeleteProject = async (id: string, force = false) => {
+    await api.deleteProject(id, force);
+    setProjects(prev => prev.filter(p => p.id !== id));
   };
 
   const handleSaveBlock = async (data: Partial<TimeBlock>) => {
@@ -91,6 +107,7 @@ export default function App() {
             date={selectedDate}
             onChangeDate={setSelectedDate}
             timeBlocks={blocks}
+            projects={projects}
             isLoading={isLoading}
             onEdit={openForm}
             onStatusChange={handleStatusChange}
@@ -98,31 +115,22 @@ export default function App() {
           />
         )}
         {currentView === 'weekly' && (
-          <WeeklyView 
+          <WeeklyView
             date={selectedDate}
             onChangeDate={setSelectedDate}
             timeBlocks={blocks}
+            projects={projects}
             isLoading={isLoading}
             onEdit={openForm}
           />
         )}
         {currentView === 'settings' && (
-          <div className="p-6 text-center space-y-4">
-             <div className="w-20 h-20 bg-gray-100 rounded-full flex flex-col items-center justify-center mx-auto mb-4">
-               <SettingsIcon size={32} className="text-gray-400" />
-             </div>
-             <h2 className="text-2xl font-bold">Pengaturan</h2>
-             <p className="text-gray-600 text-sm">
-                Untuk sinkronisasi ke Google Sheets, isi tiga variabel berikut di file <code className="bg-gray-100 px-1 rounded">.env</code>:
-             </p>
-             <ul className="text-left text-xs text-gray-500 bg-gray-50 rounded-xl p-4 space-y-1 font-mono">
-               <li>GOOGLE_SERVICE_ACCOUNT_EMAIL</li>
-               <li>GOOGLE_PRIVATE_KEY</li>
-               <li>GOOGLE_SPREADSHEET_ID</li>
-             </ul>
-             <p className="text-gray-500 text-xs">
-               Lihat <code className="bg-gray-100 px-1 rounded">.env.example</code> untuk panduan lengkap.
-             </p>
+          <div className="h-full overflow-y-auto pb-24">
+            <ProjectsManager
+              projects={projects}
+              onCreate={handleCreateProject}
+              onDelete={handleDeleteProject}
+            />
           </div>
         )}
       </div>
@@ -164,9 +172,10 @@ export default function App() {
 
       {/* Modals */}
       {showTaskForm && (
-        <TaskForm 
+        <TaskForm
           initialData={editingBlock}
           selectedDate={selectedDate}
+          projects={projects}
           onClose={() => setShowTaskForm(false)}
           onSave={handleSaveBlock}
           onDelete={handleDeleteBlock}

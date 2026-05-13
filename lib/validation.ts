@@ -1,4 +1,4 @@
-import { PROJECTS, PRIORITIES, STATUSES } from '@/src/constants';
+import { PRIORITIES, STATUSES } from '@/src/constants';
 
 const TIME_RE = /^\d{2}:\d{2}$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -17,8 +17,8 @@ export function validateCreatePayload(data: unknown): ValidationError[] {
   if (!d.task_name || typeof d.task_name !== 'string' || !d.task_name.trim()) {
     errors.push(err('task_name', 'task_name is required'));
   }
-  if (!d.project || !PROJECTS.includes(d.project as string)) {
-    errors.push(err('project', `project must be one of: ${PROJECTS.join(', ')}`));
+  if (!d.project || typeof d.project !== 'string' || !d.project.trim()) {
+    errors.push(err('project', 'project is required'));
   }
   if (!d.priority || !PRIORITIES.includes(d.priority as string)) {
     errors.push(err('priority', `priority must be one of: ${PRIORITIES.join(', ')}`));
@@ -47,8 +47,8 @@ export function validateUpdatePayload(data: unknown): ValidationError[] {
   if ('task_name' in d && (typeof d.task_name !== 'string' || !d.task_name.trim())) {
     errors.push(err('task_name', 'task_name must be a non-empty string'));
   }
-  if ('project' in d && !PROJECTS.includes(d.project as string)) {
-    errors.push(err('project', `project must be one of: ${PROJECTS.join(', ')}`));
+  if ('project' in d && (typeof d.project !== 'string' || !d.project.trim())) {
+    errors.push(err('project', 'project must be a non-empty string'));
   }
   if ('priority' in d && !PRIORITIES.includes(d.priority as string)) {
     errors.push(err('priority', `priority must be one of: ${PRIORITIES.join(', ')}`));

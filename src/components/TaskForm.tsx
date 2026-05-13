@@ -1,23 +1,25 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { TimeBlock, ProjectType, PriorityType, StatusType } from '../types';
-import { PROJECTS, PRIORITIES, STATUSES } from '../constants';
+import { TimeBlock, Project, ProjectType, PriorityType, StatusType } from '../types';
+import { PRIORITIES, STATUSES } from '../constants';
 import dayjs from 'dayjs';
 import { X, Trash2 } from 'lucide-react';
 
 interface TaskFormProps {
   initialData?: TimeBlock;
   selectedDate: string;
+  projects: Project[];
   onSave: (data: Partial<TimeBlock>) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
   onClose: () => void;
 }
 
-export default function TaskForm({ initialData, selectedDate, onSave, onDelete, onClose }: TaskFormProps) {
+export default function TaskForm({ initialData, selectedDate, projects, onSave, onDelete, onClose }: TaskFormProps) {
+  const defaultProject = projects[0]?.name || '';
   const [formData, setFormData] = useState<Partial<TimeBlock>>({
     task_name: '',
-    project: 'Personal',
+    project: defaultProject,
     priority: '🟡 Medium',
     status: 'Todo',
     date: selectedDate,
@@ -103,12 +105,18 @@ export default function TaskForm({ initialData, selectedDate, onSave, onDelete, 
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">Project</label>
-              <select 
+              <select
                 className="w-full p-3 border border-gray-200 rounded-xl bg-white"
                 value={formData.project}
                 onChange={e => setFormData({ ...formData, project: e.target.value as ProjectType })}
+                disabled={projects.length === 0}
               >
-                {PROJECTS.map(p => <option key={p} value={p}>{p}</option>)}
+                {projects.length === 0 && <option value="">— Belum ada project —</option>}
+                {/* Keep legacy project value visible even if it was removed from the list */}
+                {formData.project && !projects.some(p => p.name === formData.project) && (
+                  <option value={formData.project}>{formData.project} (deleted)</option>
+                )}
+                {projects.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
               </select>
             </div>
             <div>

@@ -1,5 +1,6 @@
 import { google } from 'googleapis';
-import { TimeBlock } from '@/src/types';
+import { TimeBlock, Project } from '@/src/types';
+import { DEFAULT_PROJECTS } from '@/src/constants';
 import dayjs from 'dayjs';
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
@@ -85,6 +86,32 @@ function readMockDb(): TimeBlock[] {
 
 function writeMockDb(data: TimeBlock[]): void {
   fs.writeFileSync(MOCK_DB_PATH, JSON.stringify(data, null, 2), 'utf-8');
+}
+
+// --- Projects mock storage ---
+
+const MOCK_PROJECTS_PATH = path.join(process.cwd(), '.mock-projects-db.json');
+
+const defaultProjectSeed = (): Project[] =>
+  DEFAULT_PROJECTS.map((p, i) => ({
+    id: `prj_${Date.now()}_${i}`,
+    name: p.name,
+    color: p.color,
+    created_at: new Date().toISOString(),
+  }));
+
+function readMockProjects(): Project[] {
+  try {
+    return JSON.parse(fs.readFileSync(MOCK_PROJECTS_PATH, 'utf-8')) as Project[];
+  } catch {
+    const seed = defaultProjectSeed();
+    writeMockProjects(seed);
+    return seed;
+  }
+}
+
+function writeMockProjects(data: Project[]): void {
+  fs.writeFileSync(MOCK_PROJECTS_PATH, JSON.stringify(data, null, 2), 'utf-8');
 }
 
 // --- Google Sheets helpers ---
@@ -294,5 +321,150 @@ export async function deleteTimeBlock(id: string): Promise<boolean> {
     },
   });
 
+  return true;
+}
+
+// =====================================================================
+// PROJECTS — list/create/delete
+// Sheet "Projects" columns: A=id, B=name, C=color, D=created_at
+// =====================================================================
+
+const PROJECTS_RANGE = 'Projects!A2:D';
+
+async function ensureProjectsSheet(sheets: ReturnType<typeof google.sheets>) {
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: getSpreadsheetId() });
+  const exists = meta.data.sheets?.some(s => s.properties?.title === 'Projects');
+  if (exists) return;
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: getSpreadsheetId(),
+    requestBody: {
+      requests: [{ addSheet: { properties: { title: 'Projects' } } }],
+    },
+  });
+  // Write header + seed defaults
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: getSpreadsheetId(),
+    range: 'Projects!A1:D1',
+    valueInputOption: 'USER_ENTERED',
+    requestBody: { values: [['id', 'name', 'color', 'created_at']] },
+  });
+  const seed = defaultProjectSeed();
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: getSpreadsheetId(),
+    range: 'Projects!A:D',
+    valueInputOption: 'USER_ENTERED',
+    requestBody: {
+      values: seed.map(p => [p.id, p.name, p.color, p.created_at || '']),
+    },
+  });
+}
+
+export async function getProjects(): Promise<Project[]> {
+  if (useMock) return readMockProjects();
+
+  const auth = getAuthClient();
+  const sheets = google.sheets({ version: 'v4', auth });
+  await ensureProjectsSheet(sheets);
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: getSpreadsheetId(),
+    range: PROJECTS_RANGE,
+  });
+  const rows = response.data.values || [];
+  return rows
+    .filter(r => r[0])
+    .map(row => ({
+      id: row[0],
+      name: row[1] || '',
+      color: row[2] || 'gray',
+      created_at: row[3] || '',
+    }));
+}
+
+export async function createProject(name: string, color: string): Promise<Project> {
+  const newProject: Project = {
+    id: `prj_${Math.floor(Date.now() / 1000)}_${uuidv4().substring(0, 4)}`,
+    name: name.trim(),
+    color,
+    created_at: new Date().toISOString(),
+  };
+
+  if (useMock) {
+    const projects = readMockProjects();
+    if (projects.some(p => p.name.toLowerCase() === newProject.name.toLowerCase())) {
+      throw new Error('Project dengan nama yang sama sudah ada');
+    }
+    projects.push(newProject);
+    writeMockProjects(projects);
+    return newProject;
+  }
+
+  const auth = getAuthClient();
+  const sheets = google.sheets({ version: 'v4', auth });
+  await ensureProjectsSheet(sheets);
+
+  // Dedupe check
+  const existing = await getProjects();
+  if (existing.some(p => p.name.toLowerCase() === newProject.name.toLowerCase())) {
+    throw new Error('Project dengan nama yang sama sudah ada');
+  }
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: getSpreadsheetId(),
+    range: 'Projects!A:D',
+    valueInputOption: 'USER_ENTERED',
+    requestBody: { values: [[newProject.id, newProject.name, newProject.color, newProject.created_at || '']] },
+  });
+  return newProject;
+}
+
+export async function countActiveTasksForProject(projectName: string): Promise<number> {
+  const blocks = await getTimeBlocks();
+  return blocks.filter(b => b.project === projectName && b.status !== 'Done' && b.status !== 'Cancelled').length;
+}
+
+export async function deleteProject(id: string): Promise<boolean> {
+  if (useMock) {
+    const projects = readMockProjects();
+    const filtered = projects.filter(p => p.id !== id);
+    if (filtered.length === projects.length) return false;
+    writeMockProjects(filtered);
+    return true;
+  }
+
+  const auth = getAuthClient();
+  const sheets = google.sheets({ version: 'v4', auth });
+  await ensureProjectsSheet(sheets);
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: getSpreadsheetId(),
+    range: PROJECTS_RANGE,
+  });
+  const rows = response.data.values || [];
+  const rowIndex = rows.findIndex(r => r[0] === id);
+  if (rowIndex === -1) return false;
+
+  const exactRowNumber = rowIndex + 2;
+
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: getSpreadsheetId() });
+  const projectsSheet = meta.data.sheets?.find(s => s.properties?.title === 'Projects');
+  if (!projectsSheet?.properties?.sheetId) throw new Error('Projects sheet not found');
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: getSpreadsheetId(),
+    requestBody: {
+      requests: [{
+        deleteDimension: {
+          range: {
+            sheetId: projectsSheet.properties.sheetId,
+            dimension: 'ROWS',
+            startIndex: exactRowNumber - 1,
+            endIndex: exactRowNumber,
+          },
+        },
+      }],
+    },
+  });
   return true;
 }

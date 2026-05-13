@@ -1,20 +1,23 @@
 'use client';
 
 import React from 'react';
-import { TimeBlock } from '../types';
+import { TimeBlock, Project } from '../types';
 import dayjs from 'dayjs';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { PROJECT_COLORS } from '../constants';
+import { colorClassFor } from '../constants';
 
 interface WeeklyViewProps {
   date: string;
   onChangeDate: (date: string) => void;
   timeBlocks: TimeBlock[];
+  projects: Project[];
   isLoading: boolean;
   onEdit: (block: TimeBlock) => void;
 }
 
-export default function WeeklyView({ date, onChangeDate, timeBlocks, isLoading, onEdit }: WeeklyViewProps) {
+export default function WeeklyView({ date, onChangeDate, timeBlocks, projects, isLoading, onEdit }: WeeklyViewProps) {
+  void isLoading;
+  const projectColorMap = new Map(projects.map(p => [p.name, p.color]));
   // Start config for week (taking Monday as start of week)
   const startOfWeek = dayjs(date).startOf('week').add(1, 'day'); // Simple adjusting for Monday as start
   const weekDays = Array.from({ length: 7 }).map((_, i) => startOfWeek.add(i, 'day'));
@@ -73,7 +76,7 @@ export default function WeeklyView({ date, onChangeDate, timeBlocks, isLoading, 
                         className={`p-3 rounded-xl border border-gray-100 shadow-sm bg-white cursor-pointer hover:border-blue-300 transition relative overflow-hidden`}
                         onClick={() => onEdit(block)}
                       >
-                        <div className={`absolute left-0 top-0 bottom-0 w-1 ${PROJECT_COLORS[block.project] || 'bg-gray-300'}`} />
+                        <div className={`absolute left-0 top-0 bottom-0 w-1 ${colorClassFor(projectColorMap.get(block.project))}`} />
                         <div className="pl-2">
                           <div className="flex justify-between items-start mb-1 text-xs font-semibold text-gray-500">
                             <span>{block.start_time} - {block.end_time}</span>
