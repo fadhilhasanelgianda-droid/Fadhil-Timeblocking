@@ -87,13 +87,14 @@ export default function App() {
       {/* Main Area */}
       <div className="flex-1 overflow-hidden relative">
         {currentView === 'daily' && (
-          <DailyView 
+          <DailyView
             date={selectedDate}
             onChangeDate={setSelectedDate}
             timeBlocks={blocks}
             isLoading={isLoading}
             onEdit={openForm}
             onStatusChange={handleStatusChange}
+            onDelete={handleDeleteBlock}
           />
         )}
         {currentView === 'weekly' && (

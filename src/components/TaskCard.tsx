@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { Trash2 } from 'lucide-react';
 import { TimeBlock } from '../types';
 import { PROJECT_COLORS, STATUS_COLORS, STATUSES } from '../constants';
 
@@ -8,13 +9,39 @@ interface TaskCardProps {
   block: TimeBlock;
   onEdit: (block: TimeBlock) => void;
   onStatusChange: (id: string, newStatus: string) => void;
+  onDelete: (id: string) => void | Promise<void>;
 }
 
-export default function TaskCard({ block, onEdit, onStatusChange }: TaskCardProps) {
+export default function TaskCard({ block, onEdit, onStatusChange, onDelete }: TaskCardProps) {
   const [showStatusMenu, setShowStatusMenu] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const ok = window.confirm(`Hapus task "${block.task_name}"?`);
+    if (!ok) return;
+    try {
+      setIsDeleting(true);
+      await onDelete(block.id);
+    } catch {
+      alert('Gagal menghapus task');
+      setIsDeleting(false);
+    }
+  };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-3 relative flex items-stretch">
+    <div className={`group bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-3 relative flex items-stretch transition-opacity ${isDeleting ? 'opacity-50 pointer-events-none' : ''}`}>
+      {/* Delete button — visible on hover */}
+      <button
+        type="button"
+        onClick={handleDelete}
+        aria-label="Hapus task"
+        title="Hapus task"
+        className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-white border border-gray-200 shadow-md text-gray-400 hover:text-red-600 hover:border-red-200 hover:bg-red-50 flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity z-10"
+      >
+        <Trash2 size={14} />
+      </button>
+
       {/* Visual left bar for project */}
       <div className={`w-1.5 rounded-full mr-3 ${PROJECT_COLORS[block.project] || 'bg-gray-300'}`} />
       
