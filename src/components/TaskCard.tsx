@@ -2,17 +2,19 @@
 
 import React, { useState } from 'react';
 import { Trash2 } from 'lucide-react';
-import { TimeBlock } from '../types';
-import { PROJECT_COLORS, STATUS_COLORS, STATUSES } from '../constants';
+import { TimeBlock, Project } from '../types';
+import { STATUS_COLORS, STATUSES, colorClassFor } from '../constants';
 
 interface TaskCardProps {
   block: TimeBlock;
+  projects: Project[];
   onEdit: (block: TimeBlock) => void;
   onStatusChange: (id: string, newStatus: string) => void;
   onDelete: (id: string) => void | Promise<void>;
 }
 
-export default function TaskCard({ block, onEdit, onStatusChange, onDelete }: TaskCardProps) {
+export default function TaskCard({ block, projects, onEdit, onStatusChange, onDelete }: TaskCardProps) {
+  const projectColor = projects.find(p => p.name === block.project)?.color;
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -43,7 +45,7 @@ export default function TaskCard({ block, onEdit, onStatusChange, onDelete }: Ta
       </button>
 
       {/* Visual left bar for project */}
-      <div className={`w-1.5 rounded-full mr-3 ${PROJECT_COLORS[block.project] || 'bg-gray-300'}`} />
+      <div className={`w-1.5 rounded-full mr-3 ${colorClassFor(projectColor)}`} />
       
       <div className="flex-1">
         <div className="flex justify-between items-start mb-1">

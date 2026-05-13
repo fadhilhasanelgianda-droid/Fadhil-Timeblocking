@@ -8,3 +8,6 @@ coverage/
 .env*
 !.env.example
 .mock-db.json
+.mock-projects-db.json
+tsconfig.tsbuildinfo
+*.tsbuildinfo
