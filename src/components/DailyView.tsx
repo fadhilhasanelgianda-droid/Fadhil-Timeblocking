@@ -12,10 +12,11 @@ interface DailyViewProps {
   timeBlocks: TimeBlock[];
   onEdit: (block: TimeBlock) => void;
   onStatusChange: (id: string, newStatus: string) => void;
+  onDelete: (id: string) => void | Promise<void>;
   isLoading: boolean;
 }
 
-export default function DailyView({ date, onChangeDate, timeBlocks, onEdit, onStatusChange, isLoading }: DailyViewProps) {
+export default function DailyView({ date, onChangeDate, timeBlocks, onEdit, onStatusChange, onDelete, isLoading }: DailyViewProps) {
   const blocksForDate = timeBlocks.filter(b => b.date === date).sort((a, b) => a.start_time.localeCompare(b.start_time));
   
   const totalHours = blocksForDate.reduce((acc, b) => acc + (b.duration_hrs || 0), 0);
@@ -72,11 +73,12 @@ export default function DailyView({ date, onChangeDate, timeBlocks, onEdit, onSt
         ) : blocksForDate.length > 0 ? (
           <div className="space-y-2">
              {blocksForDate.map(block => (
-               <TaskCard 
-                 key={block.id} 
-                 block={block} 
+               <TaskCard
+                 key={block.id}
+                 block={block}
                  onEdit={onEdit}
                  onStatusChange={onStatusChange}
+                 onDelete={onDelete}
                />
              ))}
           </div>
