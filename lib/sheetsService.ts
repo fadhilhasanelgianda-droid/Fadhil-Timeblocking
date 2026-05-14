@@ -138,6 +138,30 @@ function findRowIndex(rows: string[][], id: string): number {
   return rows.findIndex(row => row[0] === id);
 }
 
+/**
+ * Look up a sheet's numeric sheetId by its title (case-insensitive, trimmed).
+ * Throws with a helpful list of actual sheet titles if not found.
+ */
+async function getSheetIdByTitle(
+  sheets: ReturnType<typeof google.sheets>,
+  title: string,
+): Promise<number> {
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId: getSpreadsheetId(),
+    fields: 'sheets.properties(sheetId,title)',
+  });
+  const all = meta.data.sheets || [];
+  const normalized = title.trim().toLowerCase();
+  const match = all.find(s => (s.properties?.title || '').trim().toLowerCase() === normalized);
+  if (!match?.properties?.sheetId && match?.properties?.sheetId !== 0) {
+    const available = all.map(s => `"${s.properties?.title}"`).join(', ') || '(none)';
+    throw new Error(
+      `Sheet "${title}" not found. Available sheets: ${available}`,
+    );
+  }
+  return match.properties!.sheetId!;
+}
+
 export async function getTimeBlocks(): Promise<TimeBlock[]> {
   if (useMock) return readMockDb();
 
@@ -328,9 +352,7 @@ export async function deleteTimeBlock(id: string): Promise<boolean> {
 
   const exactRowNumber = rowIndex + 2;
 
-  const sheetMeta = await sheets.spreadsheets.get({ spreadsheetId: getSpreadsheetId() });
-  const taskLogSheet = sheetMeta.data.sheets?.find(s => s.properties?.title === 'Task Log');
-  if (!taskLogSheet?.properties?.sheetId) throw new Error('Task Log sheet not found');
+  const sheetId = await getSheetIdByTitle(sheets, 'Task Log');
 
   await sheets.spreadsheets.batchUpdate({
     spreadsheetId: getSpreadsheetId(),
@@ -338,7 +360,7 @@ export async function deleteTimeBlock(id: string): Promise<boolean> {
       requests: [{
         deleteDimension: {
           range: {
-            sheetId: taskLogSheet.properties.sheetId,
+            sheetId,
             dimension: 'ROWS',
             startIndex: exactRowNumber - 1,
             endIndex: exactRowNumber,
@@ -474,9 +496,7 @@ export async function deleteProject(id: string): Promise<boolean> {
 
   const exactRowNumber = rowIndex + 2;
 
-  const meta = await sheets.spreadsheets.get({ spreadsheetId: getSpreadsheetId() });
-  const projectsSheet = meta.data.sheets?.find(s => s.properties?.title === 'Projects');
-  if (!projectsSheet?.properties?.sheetId) throw new Error('Projects sheet not found');
+  const sheetId = await getSheetIdByTitle(sheets, 'Projects');
 
   await sheets.spreadsheets.batchUpdate({
     spreadsheetId: getSpreadsheetId(),
@@ -484,7 +504,7 @@ export async function deleteProject(id: string): Promise<boolean> {
       requests: [{
         deleteDimension: {
           range: {
-            sheetId: projectsSheet.properties.sheetId,
+            sheetId,
             dimension: 'ROWS',
             startIndex: exactRowNumber - 1,
             endIndex: exactRowNumber,
