@@ -9,13 +9,14 @@ import DailyView from './components/DailyView';
 import WeeklyView from './components/WeeklyView';
 import TaskForm from './components/TaskForm';
 import ProjectsManager from './components/ProjectsManager';
-import { Plus, LayoutList, CalendarDays, Settings as SettingsIcon } from 'lucide-react';
+import Dashboard from './components/Dashboard';
+import { Plus, LayoutList, CalendarDays, BarChart3, Settings as SettingsIcon } from 'lucide-react';
 import { StatusType } from './types';
 
 dayjs.extend(isSameOrAfter);
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<'daily' | 'weekly' | 'settings'>('daily');
+  const [currentView, setCurrentView] = useState<'daily' | 'weekly' | 'dashboard' | 'settings'>('daily');
   const [selectedDate, setSelectedDate] = useState(dayjs().format('YYYY-MM-DD'));
   
   const [blocks, setBlocks] = useState<TimeBlock[]>([]);
@@ -130,6 +131,11 @@ export default function App() {
             onEdit={openForm}
           />
         )}
+        {currentView === 'dashboard' && (
+          <div className="h-full overflow-y-auto bg-gray-50/50">
+            <Dashboard blocks={blocks} projects={projects} isLoading={isLoading} />
+          </div>
+        )}
         {currentView === 'settings' && (
           <div className="h-full overflow-y-auto pb-24">
             <ProjectsManager
@@ -142,7 +148,7 @@ export default function App() {
       </div>
 
       {/* Floating Action Button */}
-      {currentView !== 'settings' && (
+      {currentView !== 'settings' && currentView !== 'dashboard' && (
         <button 
           onClick={() => openForm()}
           className="absolute right-6 bottom-24 w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center shadow-lg shadow-blue-600/30 text-white hover:bg-blue-700 hover:scale-105 active:scale-95 transition-all z-20"
@@ -160,15 +166,22 @@ export default function App() {
           <LayoutList size={22} className="mb-1" />
           <span className="text-[10px] font-bold">Daily</span>
         </button>
-        <button 
-          onClick={() => setCurrentView('weekly')} 
+        <button
+          onClick={() => setCurrentView('weekly')}
           className={`flex flex-col items-center p-2 rounded-xl transition ${currentView === 'weekly' ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
         >
           <CalendarDays size={22} className="mb-1" />
           <span className="text-[10px] font-bold">Weekly</span>
         </button>
-        <button 
-          onClick={() => setCurrentView('settings')} 
+        <button
+          onClick={() => setCurrentView('dashboard')}
+          className={`flex flex-col items-center p-2 rounded-xl transition ${currentView === 'dashboard' ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
+        >
+          <BarChart3 size={22} className="mb-1" />
+          <span className="text-[10px] font-bold">Dashboard</span>
+        </button>
+        <button
+          onClick={() => setCurrentView('settings')}
           className={`flex flex-col items-center p-2 rounded-xl transition ${currentView === 'settings' ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
         >
           <SettingsIcon size={22} className="mb-1" />
