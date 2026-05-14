@@ -8,11 +8,21 @@ function authHeaders(): HeadersInit {
   };
 }
 
+async function extractError(res: Response, fallback: string): Promise<string> {
+  try {
+    const body = await res.json();
+    if (body?.errors?.[0]?.message) return body.errors[0].message;
+    if (body?.message) return body.message;
+    if (body?.error) return String(body.error);
+  } catch {
+    /* not JSON */
+  }
+  return `${fallback} (HTTP ${res.status})`;
+}
+
 export async function fetchTimeBlocks(): Promise<TimeBlock[]> {
-  const res = await fetch('/api/timeblocks', {
-    headers: authHeaders(),
-  });
-  if (!res.ok) throw new Error('Failed to fetch time blocks');
+  const res = await fetch('/api/timeblocks', { headers: authHeaders() });
+  if (!res.ok) throw new Error(await extractError(res, 'Failed to fetch time blocks'));
   return res.json();
 }
 
@@ -22,7 +32,7 @@ export async function createTimeBlock(data: Partial<TimeBlock>): Promise<TimeBlo
     headers: authHeaders(),
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error('Failed to create time block');
+  if (!res.ok) throw new Error(await extractError(res, 'Failed to create time block'));
   return res.json();
 }
 
@@ -32,7 +42,7 @@ export async function updateTimeBlock(id: string, data: Partial<TimeBlock>): Pro
     headers: authHeaders(),
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error('Failed to update time block');
+  if (!res.ok) throw new Error(await extractError(res, 'Failed to update time block'));
   return res.json();
 }
 
@@ -41,7 +51,7 @@ export async function deleteTimeBlock(id: string): Promise<void> {
     method: 'DELETE',
     headers: authHeaders(),
   });
-  if (!res.ok) throw new Error('Failed to delete time block');
+  if (!res.ok) throw new Error(await extractError(res, 'Failed to delete time block'));
 }
 
 // --- Projects ---

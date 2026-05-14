@@ -118,6 +118,26 @@ function writeMockProjects(data: Project[]): void {
 
 const SPREADSHEET_RANGE = 'Task Log!A2:M';
 
+/**
+ * Find a row by id. Returns -1 if not found.
+ *
+ * Supports two formats:
+ *   - Real IDs (e.g. "tb_123_abcd") match against column A
+ *   - Synthetic IDs ("row_N") returned by getTimeBlocks() for rows with
+ *     blank column A — parse the row number out
+ */
+function findRowIndex(rows: string[][], id: string): number {
+  if (id.startsWith('row_')) {
+    const targetSheetRow = parseInt(id.slice(4), 10);
+    if (Number.isFinite(targetSheetRow) && targetSheetRow >= 2) {
+      // rows[] starts at sheet row 2, so subtract 2 to get the array index
+      const idx = targetSheetRow - 2;
+      return idx >= 0 && idx < rows.length ? idx : -1;
+    }
+  }
+  return rows.findIndex(row => row[0] === id);
+}
+
 export async function getTimeBlocks(): Promise<TimeBlock[]> {
   if (useMock) return readMockDb();
 
@@ -229,16 +249,23 @@ export async function updateTimeBlock(id: string, data: Partial<TimeBlock>): Pro
     range: SPREADSHEET_RANGE,
   });
 
-  const rows = response.data.values || [];
-  const rowIndex = rows.findIndex(row => row[0] === id);
+  const rows = (response.data.values || []) as string[][];
+  const rowIndex = findRowIndex(rows, id);
 
   if (rowIndex === -1) return null;
 
   const exactRowNumber = rowIndex + 2;
   const old = rows[rowIndex];
 
+  // If the row had no persistent id (synthetic "row_N"), assign a real one now
+  // so subsequent updates can find it reliably.
+  const persistentId =
+    id.startsWith('row_') && !old[0]
+      ? `tb_${Math.floor(Date.now() / 1000)}_${uuidv4().substring(0, 4)}`
+      : id;
+
   const updatedRow = [
-    id,
+    persistentId,
     data.date ?? old[1] ?? '',
     data.day ?? old[2] ?? '',
     data.project ?? old[3] ?? '',
@@ -294,8 +321,8 @@ export async function deleteTimeBlock(id: string): Promise<boolean> {
     range: SPREADSHEET_RANGE,
   });
 
-  const rows = response.data.values || [];
-  const rowIndex = rows.findIndex(row => row[0] === id);
+  const rows = (response.data.values || []) as string[][];
+  const rowIndex = findRowIndex(rows, id);
 
   if (rowIndex === -1) return false;
 
