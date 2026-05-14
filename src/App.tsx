@@ -76,7 +76,9 @@ export default function App() {
       await api.deleteTimeBlock(id);
       setBlocks(blocks.filter(b => b.id !== id));
     } catch (err) {
-      console.error(err);
+      console.error('Delete failed:', err);
+      const message = err instanceof Error ? err.message : String(err);
+      alert(`Gagal menghapus task:\n${message}`);
       throw err;
     }
   };
@@ -84,11 +86,15 @@ export default function App() {
   const handleStatusChange = async (id: string, newStatus: string) => {
     try {
       const block = blocks.find(b => b.id === id);
-      if(!block) return;
-      const updated = await api.updateTimeBlock(id, { ...block, status: newStatus as StatusType });
-      setBlocks(blocks.map(b => b.id === id ? updated : b));
+      if (!block) return;
+      // Only send the fields the server needs — avoid sending `created_at` and other
+      // metadata back, which can trigger validation failures.
+      const updated = await api.updateTimeBlock(id, { status: newStatus as StatusType });
+      setBlocks(blocks.map(b => (b.id === id ? updated : b)));
     } catch (err) {
-      alert('Gagal mengubah status');
+      console.error('Status change failed:', err);
+      const message = err instanceof Error ? err.message : String(err);
+      alert(`Gagal mengubah status:\n${message}`);
     }
   };
 
